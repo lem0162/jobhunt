@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Generate JobHunt Icons</title>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #0a0e1a; color: #e8edf5; padding: 24px; }
+    canvas { display: block; margin: 12px 0; background: #fff; }
+    a.dl { display: inline-block; margin: 4px 8px 12px 0; padding: 8px 14px; background: #5b9bff; color: #fff; border-radius: 8px; text-decoration: none; font-weight: 600; }
+    h2 { margin-top: 24px; }
+    p { color: #8b95a8; }
+  </style>
+</head>
+<body>
+  <h1>JobHunt Icon Generator</h1>
+  <p>Click each download link, then save the PNGs into <code>jobhunt/icons/</code> as the filenames shown.</p>
+
+  <div id="out"></div>
+
+  <script>
+    const sizes = [192, 512];
+    const out = document.getElementById('out');
+
+    function draw(canvas, size) {
+      const ctx = canvas.getContext('2d');
+      const r = size;
+
+      // background rounded square
+      ctx.fillStyle = '#0a0e1a';
+      ctx.beginPath();
+      const radius = r * 0.2;
+      ctx.moveTo(radius, 0);
+      ctx.lineTo(r - radius, 0);
+      ctx.quadraticCurveTo(r, 0, r, radius);
+      ctx.lineTo(r, r - radius);
+      ctx.quadraticCurveTo(r, r, r - radius, r);
+      ctx.lineTo(radius, r);
+      ctx.quadraticCurveTo(0, r, 0, r - radius);
+      ctx.lineTo(0, radius);
+      ctx.quadraticCurveTo(0, 0, radius, 0);
+      ctx.closePath();
+      ctx.fill();
+
+      // briefcase
+      const bx = r * 0.19;
+      const by = r * 0.31;
+      const bw = r * 0.62;
+      const bh = r * 0.41;
+      const br = r * 0.05;
+
+      // handle
+      ctx.strokeStyle = '#5b9bff';
+      ctx.lineWidth = r * 0.04;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      const hx1 = r * 0.39;
+      const hx2 = r * 0.61;
+      const hyTop = by - r * 0.03;
+      const hyHandle = by - r * 0.11;
+      ctx.moveTo(hx1, hyTop);
+      ctx.lineTo(hx1, hyHandle + r * 0.04);
+      ctx.quadraticCurveTo(hx1, hyHandle, hx1 + r * 0.04, hyHandle);
+      ctx.lineTo(hx2 - r * 0.04, hyHandle);
+      ctx.quadraticCurveTo(hx2, hyHandle, hx2, hyHandle + r * 0.04);
+      ctx.lineTo(hx2, hyTop);
+      ctx.stroke();
+
+      // body
+      ctx.fillStyle = '#5b9bff';
+      ctx.beginPath();
+      ctx.moveTo(bx + br, by);
+      ctx.lineTo(bx + bw - br, by);
+      ctx.quadraticCurveTo(bx + bw, by, bx + bw, by + br);
+      ctx.lineTo(bx + bw, by + bh - br);
+      ctx.quadraticCurveTo(bx + bw, by + bh, bx + bw - br, by + bh);
+      ctx.lineTo(bx + br, by + bh);
+      ctx.quadraticCurveTo(bx, by + bh, bx, by + bh - br);
+      ctx.lineTo(bx, by + br);
+      ctx.quadraticCurveTo(bx, by, bx + br, by);
+      ctx.closePath();
+      ctx.fill();
+
+      // center band
+      ctx.fillStyle = 'rgba(10,14,26,0.4)';
+      ctx.fillRect(bx, by + bh * 0.42, bw, bh * 0.16);
+
+      // clasp
+      ctx.fillStyle = '#e8edf5';
+      const cw = r * 0.06;
+      const ch = r * 0.03;
+      ctx.fillRect(r * 0.5 - cw / 2, by + bh * 0.475, cw, ch);
+    }
+
+    sizes.forEach((size) => {
+      const section = document.createElement('div');
+      const h2 = document.createElement('h2');
+      h2.textContent = `${size}×${size}`;
+      section.appendChild(h2);
+      const canvas = document.createElement('canvas');
+      canvas.width = size; canvas.height = size;
+      draw(canvas, size);
+      section.appendChild(canvas);
+      const link = document.createElement('a');
+      link.className = 'dl';
+      link.textContent = `Download icon-${size}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.download = `icon-${size}.png`;
+      section.appendChild(link);
+      out.appendChild(section);
+    });
+  </script>
+</body>
+</html>

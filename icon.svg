@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#0a0e1a"/>
+  <g transform="translate(96 128)">
+    <!-- briefcase body -->
+    <rect x="0" y="48" width="320" height="208" rx="24" fill="#5b9bff"/>
+    <!-- handle -->
+    <path d="M104 48 V32 a24 24 0 0 1 24 -24 h64 a24 24 0 0 1 24 24 V48" stroke="#5b9bff" stroke-width="20" fill="none" stroke-linecap="round"/>
+    <!-- center band -->
+    <rect x="0" y="128" width="320" height="40" fill="#0a0e1a" opacity="0.35"/>
+    <!-- clasp -->
+    <rect x="144" y="140" width="32" height="16" rx="4" fill="#e8edf5"/>
+  </g>
+</svg>
