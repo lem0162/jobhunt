@@ -19,7 +19,7 @@ const LS = {
 
 const CACHE_TTL = 1000 * 60 * 30;
 
-const KNOWN_SOURCES = ['RemoteOK', 'WWR', 'HN', 'Remotive', 'Arbeitnow'];
+const KNOWN_SOURCES = ['RemoteOK', 'WWR', 'HN', 'Remotive', 'Arbeitnow', 'Himalayas', 'TheMuse'];
 
 const DEFAULT_FILTERS = {
   sort: 'newest',
@@ -35,8 +35,7 @@ function loadFilters() {
   const loaded = loadJson(LS.filters, {});
   const merged = { ...DEFAULT_FILTERS, ...loaded };
   if (Array.isArray(loaded.sources)) {
-    const oldKnown = ['RemoteOK', 'WWR', 'HN'];
-    const newOnes = KNOWN_SOURCES.filter((s) => !oldKnown.includes(s));
+    const newOnes = KNOWN_SOURCES.filter((s) => !loaded.sources.includes(s));
     merged.sources = [...new Set([...loaded.sources, ...newOnes])];
   }
   return merged;

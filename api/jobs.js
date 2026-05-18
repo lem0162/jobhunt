@@ -1,6 +1,6 @@
 // Vercel serverless function: aggregates jobs from multiple sources.
 // Sources: RemoteOK, We Work Remotely (all categories), Hacker News
-// "Who is hiring" (last 2 threads), Remotive, Arbeitnow.
+// "Who is hiring" (last 2 threads), Remotive, Arbeitnow, Himalayas, The Muse.
 // Cached 10 min at the edge so repeat loads are cheap.
 
 export default async function handler(req, res) {
@@ -12,8 +12,10 @@ export default async function handler(req, res) {
     fetchHN(),
     fetchRemotive(),
     fetchArbeitnow(),
+    fetchHimalayas(),
+    fetchTheMuse(),
   ]);
-  const labels = ['RemoteOK', 'WWR', 'HN', 'Remotive', 'Arbeitnow'];
+  const labels = ['RemoteOK', 'WWR', 'HN', 'Remotive', 'Arbeitnow', 'Himalayas', 'TheMuse'];
 
   let jobs = [];
   const sourcesOk = {};
@@ -245,6 +247,98 @@ async function fetchArbeitnow() {
       salaryMax: sal.max,
     };
   });
+}
+
+// -- Himalayas (public API) -------------------------------------------------
+
+async function fetchHimalayas() {
+  const r = await fetch('https://himalayas.app/jobs/api', {
+    headers: { 'User-Agent': 'JobHunt/1.0' },
+  });
+  if (!r.ok) throw new Error(`Himalayas ${r.status}`);
+  const data = await r.json();
+  const jobs = data.jobs || data.data || [];
+  return jobs.map((j) => {
+    const desc = j.description || j.excerpt || '';
+    const sal = parseSalary(j.minSalary || j.salaryMin, j.maxSalary || j.salaryMax, desc);
+    const locStr = Array.isArray(j.locationRestrictions)
+      ? j.locationRestrictions.join(', ')
+      : (j.jobLocation || j.location || 'Remote');
+    return {
+      id: 'himalayas-' + (j.guid || j.id || j.slug || hashStr(j.title + j.companyName)),
+      title: (j.title || j.name || '').trim(),
+      company: (j.companyName || j.company || 'Unknown').trim(),
+      location: prettyLocation(locStr) || 'Remote',
+      locationTags: locationTags(locStr, true),
+      description: cleanHtml(desc),
+      descriptionHtml: desc,
+      url: j.applicationLink || j.url || j.companyApplyLink || 'https://himalayas.app',
+      source: 'Himalayas',
+      postedAt: j.pubDate ? new Date(j.pubDate).getTime()
+              : j.publicationDate ? new Date(j.publicationDate).getTime()
+              : Date.now(),
+      tags: Array.isArray(j.categories) ? j.categories.slice(0, 8)
+          : Array.isArray(j.tags) ? j.tags.slice(0, 8)
+          : guessTags((j.title || '') + ' ' + desc),
+      contacts: extractEmails(desc),
+      logo: j.companyLogo || j.companyLogoUrl || null,
+      salary: sal.display,
+      salaryMin: sal.min,
+      salaryMax: sal.max,
+    };
+  });
+}
+
+// -- The Muse (public API, paginated) ---------------------------------------
+
+async function fetchTheMuse() {
+  // Pull 3 pages in parallel (~60 jobs total) — page size is 20
+  const pages = await Promise.all([1, 2, 3].map(async (p) => {
+    const r = await fetch(`https://www.themuse.com/api/public/jobs?page=${p}&descending=true`);
+    if (!r.ok) throw new Error(`TheMuse p${p} ${r.status}`);
+    return r.json();
+  }));
+  const out = [];
+  for (const page of pages) {
+    for (const j of (page.results || [])) {
+      const desc = j.contents || '';
+      const locStr = (j.locations || []).map((l) => l.name).join(', ') || 'See description';
+      const isRemote = /flexible|remote/i.test(locStr);
+      const tags = []
+        .concat((j.categories || []).map((c) => c.name))
+        .concat((j.levels || []).map((l) => l.name))
+        .concat((j.tags || []).map((t) => t.name))
+        .filter(Boolean)
+        .slice(0, 8);
+      const sal = parseSalary(null, null, desc);
+      out.push({
+        id: 'themuse-' + j.id,
+        title: (j.name || '').trim(),
+        company: (j.company?.name || 'Unknown').trim(),
+        location: prettyLocation(locStr),
+        locationTags: locationTags(locStr, isRemote),
+        description: cleanHtml(desc),
+        descriptionHtml: desc,
+        url: j.refs?.landing_page || `https://www.themuse.com/jobs/${j.id}`,
+        source: 'TheMuse',
+        postedAt: j.publication_date ? new Date(j.publication_date).getTime() : Date.now(),
+        tags,
+        contacts: extractEmails(desc),
+        logo: j.company?.refs?.logo_image || null,
+        salary: sal.display,
+        salaryMin: sal.min,
+        salaryMax: sal.max,
+      });
+    }
+  }
+  return out;
+}
+
+// Stable hash for IDs when source doesn't provide one
+function hashStr(s) {
+  let h = 0;
+  for (let i = 0; i < (s || '').length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+  return Math.abs(h).toString(36);
 }
 
 // -- Dedup -------------------------------------------------------------------

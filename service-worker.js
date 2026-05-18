@@ -1,4 +1,4 @@
-const CACHE = 'jobhunt-v3';
+const CACHE = 'jobhunt-v4';
 const ASSETS = [
   '/',
   '/index.html',
