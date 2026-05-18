@@ -41,22 +41,28 @@ async function fetchRemoteOK() {
   });
   if (!r.ok) throw new Error(`RemoteOK ${r.status}`);
   const data = await r.json();
-  // First entry is API metadata, skip it
-  return data.slice(1).map((j) => ({
-    id: 'remoteok-' + j.id,
-    title: (j.position || j.title || '').trim(),
-    company: (j.company || 'Unknown').trim(),
-    location: j.location || 'Remote',
-    description: cleanHtml(j.description || ''),
-    descriptionHtml: j.description || '',
-    url: j.url || j.apply_url,
-    source: 'RemoteOK',
-    postedAt: j.date ? new Date(j.date).getTime() : Date.now(),
-    tags: Array.isArray(j.tags) ? j.tags.slice(0, 6) : [],
-    contacts: extractEmails(j.description || ''),
-    logo: j.company_logo || null,
-    salary: j.salary || (j.salary_min ? `$${j.salary_min}+` : null),
-  }));
+  return data.slice(1).map((j) => {
+    const desc = j.description || '';
+    const sal = parseSalary(j.salary_min, j.salary_max, j.salary || desc);
+    return {
+      id: 'remoteok-' + j.id,
+      title: (j.position || j.title || '').trim(),
+      company: (j.company || 'Unknown').trim(),
+      location: prettyLocation(j.location) || 'Remote',
+      locationTags: locationTags(j.location, true),
+      description: cleanHtml(desc),
+      descriptionHtml: desc,
+      url: j.url || j.apply_url,
+      source: 'RemoteOK',
+      postedAt: j.date ? new Date(j.date).getTime() : Date.now(),
+      tags: Array.isArray(j.tags) ? j.tags.slice(0, 8) : [],
+      contacts: extractEmails(desc),
+      logo: j.company_logo || null,
+      salary: sal.display,
+      salaryMin: sal.min,
+      salaryMax: sal.max,
+    };
+  });
 }
 
 // -- We Work Remotely (RSS) --------------------------------------------------
@@ -81,25 +87,28 @@ function parseWWR(xml) {
     const guid = pick(block, 'guid');
     const region = decodeXml(pick(block, 'region'));
 
-    // WWR title format: "Company: Job Title"
     const colonIdx = title.indexOf(':');
     const company = colonIdx > -1 ? title.slice(0, colonIdx).trim() : 'Unknown';
     const role = colonIdx > -1 ? title.slice(colonIdx + 1).trim() : title;
+    const sal = parseSalary(null, null, description);
 
     out.push({
       id: 'wwr-' + (guid || link),
       title: role,
       company,
-      location: region || 'Remote',
+      location: prettyLocation(region) || 'Remote',
+      locationTags: locationTags(region, true),
       description: cleanHtml(description),
       descriptionHtml: description,
       url: link,
       source: 'WWR',
       postedAt: pubDate ? new Date(pubDate).getTime() : Date.now(),
-      tags: [],
+      tags: guessTags(role + ' ' + description),
       contacts: extractEmails(description),
       logo: null,
-      salary: null,
+      salary: sal.display,
+      salaryMin: sal.min,
+      salaryMax: sal.max,
     });
   }
   return out;
@@ -114,7 +123,6 @@ function pick(block, tag) {
 // -- Hacker News "Who is hiring" --------------------------------------------
 
 async function fetchHN() {
-  // Find the most recent "Ask HN: Who is hiring?" story
   const searchRes = await fetch(
     'https://hn.algolia.com/api/v1/search?query=Ask%20HN%20Who%20is%20hiring&tags=story&hitsPerPage=5'
   );
@@ -125,7 +133,6 @@ async function fetchHN() {
   );
   if (!story) return [];
 
-  // Pull top-level comments on that story
   const commentsRes = await fetch(
     `https://hn.algolia.com/api/v1/search?tags=comment,story_${story.objectID}&hitsPerPage=100`
   );
@@ -141,22 +148,26 @@ async function fetchHN() {
 
       const company = parts[0] || c.author || 'Unknown';
       const role = parts[1] || 'See description';
-      const location = parts.slice(2, 4).join(' · ') || 'See description';
+      const locationStr = parts.slice(2, 4).join(' · ') || 'See description';
+      const sal = parseSalary(null, null, text);
 
       return {
         id: 'hn-' + c.objectID,
         title: role.slice(0, 120),
         company: company.slice(0, 80),
-        location,
+        location: prettyLocation(locationStr),
+        locationTags: locationTags(locationStr, /remote/i.test(text)),
         description: text,
         descriptionHtml: c.comment_text,
         url: `https://news.ycombinator.com/item?id=${c.objectID}`,
         source: 'HN',
         postedAt: (c.created_at_i || 0) * 1000,
-        tags: [],
+        tags: guessTags(text),
         contacts: extractEmails(text),
         logo: null,
-        salary: null,
+        salary: sal.display,
+        salaryMin: sal.min,
+        salaryMax: sal.max,
       };
     });
 }
@@ -195,4 +206,90 @@ function decodeXml(s) {
     .replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"')
     .replace(/&apos;/g, "'");
+}
+
+// Salary parsing — handles "$120k", "$120,000", "$120k-180k", numeric min/max, etc.
+function parseSalary(min, max, text) {
+  let lo = toNum(min);
+  let hi = toNum(max);
+
+  if (!lo && !hi && text) {
+    const t = String(text);
+    // Pattern: $120k - $180k or $120-180k
+    const range = t.match(/\$?\s?(\d{1,3})\s?k\s?[-–to]+\s?\$?\s?(\d{1,3})\s?k/i);
+    if (range) { lo = +range[1] * 1000; hi = +range[2] * 1000; }
+    else {
+      // Pattern: $120,000 - $180,000
+      const rangeFull = t.match(/\$\s?(\d{2,3}),(\d{3})\s?[-–to]+\s?\$?\s?(\d{2,3}),(\d{3})/);
+      if (rangeFull) {
+        lo = +(rangeFull[1] + rangeFull[2]);
+        hi = +(rangeFull[3] + rangeFull[4]);
+      } else {
+        // Single value: $120k or $120,000
+        const single = t.match(/\$\s?(\d{1,3})\s?k(?!\s?[-–])/i) ||
+                       t.match(/\$\s?(\d{2,3}),(\d{3})(?!\s?[-–])/);
+        if (single) {
+          const v = single[2] ? +(single[1] + single[2]) : +single[1] * 1000;
+          lo = v; hi = v;
+        }
+      }
+    }
+  }
+
+  if (!lo && !hi) return { display: null, min: null, max: null };
+  if (lo && hi && lo !== hi) {
+    return { display: `$${kFmt(lo)}–${kFmt(hi)}`, min: lo, max: hi };
+  }
+  const v = lo || hi;
+  return { display: `$${kFmt(v)}`, min: v, max: v };
+}
+
+function toNum(v) {
+  if (v == null) return null;
+  const n = +v;
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+function kFmt(n) {
+  if (n >= 1000) return Math.round(n / 1000) + 'k';
+  return String(n);
+}
+
+function prettyLocation(loc) {
+  if (!loc) return null;
+  const s = String(loc).trim();
+  if (!s) return null;
+  // Cap length, normalize separators
+  return s.replace(/[\|]/g, ' · ').slice(0, 60);
+}
+
+function locationTags(loc, isRemote) {
+  const tags = [];
+  if (isRemote || /remote/i.test(loc || '')) tags.push('remote');
+  const s = String(loc || '').toLowerCase();
+  if (/\busa?\b|united states|us only|us-only/.test(s)) tags.push('us');
+  if (/europe|eu only|emea/.test(s)) tags.push('europe');
+  if (/worldwide|anywhere|global/.test(s)) tags.push('worldwide');
+  return tags;
+}
+
+// Lightweight tag guessing from text (for sources that don't provide tags)
+const TAG_DICT = [
+  'react','vue','svelte','angular','next.js','typescript','javascript','node',
+  'python','django','flask','fastapi','ruby','rails','go','golang','rust',
+  'java','kotlin','swift','c++','c#','.net','php','laravel','elixir','phoenix',
+  'aws','gcp','azure','kubernetes','docker','terraform','postgres','mysql',
+  'mongodb','redis','graphql','rest','ai','ml','llm','data','devops','sre',
+  'mobile','ios','android','frontend','backend','fullstack','senior','staff','principal'
+];
+function guessTags(text) {
+  if (!text) return [];
+  const t = text.toLowerCase();
+  const hits = [];
+  for (const tag of TAG_DICT) {
+    const re = new RegExp(`\\b${tag.replace(/[+#.]/g, '\\$&')}\\b`, 'i');
+    if (re.test(t)) hits.push(tag);
+    if (hits.length >= 6) break;
+  }
+  return hits;
 }

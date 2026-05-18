@@ -3,62 +3,122 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <meta name="theme-color" content="#0a0e1a">
+  <meta name="theme-color" content="#0a0e1a" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#f6f7fb" media="(prefers-color-scheme: light)">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="JobHunt">
   <meta name="mobile-web-app-capable" content="yes">
+  <meta name="format-detection" content="telephone=no">
   <link rel="manifest" href="/manifest.json">
   <link rel="icon" type="image/svg+xml" href="/icon.svg">
   <link rel="apple-touch-icon" href="/icons/icon-192.png">
   <link rel="stylesheet" href="/styles.css">
   <title>JobHunt</title>
 </head>
-<body class="view-feed">
+<body class="view-feed theme-dark">
   <div id="app">
 
+    <!-- ============ TOP BAR ============ -->
     <header id="topbar">
       <h1 id="title">JobHunt</h1>
-      <button id="refresh-btn" type="button" aria-label="Refresh feed">
-        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/>
-        </svg>
-      </button>
+      <div class="topbar-actions">
+        <button id="filter-btn" type="button" aria-label="Filters">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 6h18M6 12h12M10 18h4"/>
+          </svg>
+          <span id="filter-count" class="action-badge" hidden>0</span>
+        </button>
+        <button id="refresh-btn" type="button" aria-label="Refresh">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/>
+          </svg>
+        </button>
+      </div>
     </header>
 
+    <!-- ============ SEARCH + QUICK FILTERS ============ -->
     <div id="searchbar">
       <div id="search-wrap">
         <svg id="search-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>
         </svg>
-        <input id="search-input" type="search" placeholder="Search jobs, companies…" inputmode="search" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
-        <button id="search-clear" type="button" aria-label="Clear search">×</button>
+        <input id="search-input" type="search" placeholder="Search jobs, companies, skills…" inputmode="search" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+        <button id="search-clear" type="button" aria-label="Clear search">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 6 6 18M6 6l12 12"/>
+          </svg>
+        </button>
       </div>
+
+      <!-- Suggestions dropdown -->
+      <div id="search-suggestions" hidden></div>
+
+      <!-- Source quick chips -->
       <div id="source-chips" role="tablist">
         <button class="chip active" data-source="all" type="button">All</button>
         <button class="chip" data-source="RemoteOK" type="button">RemoteOK</button>
         <button class="chip" data-source="WWR" type="button">WWR</button>
         <button class="chip" data-source="HN" type="button">HN</button>
       </div>
-      <div id="company-filter" hidden>
-        <span>Filtered by company:</span>
-        <strong id="company-filter-name"></strong>
-        <button id="company-filter-clear" type="button" aria-label="Clear company filter">×</button>
-      </div>
+
+      <!-- Active filter pills (shown when filters applied) -->
+      <div id="filter-pills" hidden></div>
     </div>
 
+    <!-- ============ MAIN CONTENT ============ -->
     <main id="content">
+      <!-- Pull-to-refresh indicator -->
+      <div id="ptr-indicator">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/>
+        </svg>
+      </div>
+
       <div id="feed-list" class="job-list"></div>
       <div id="saved-list" class="job-list"></div>
+      <div id="applied-list" class="job-list"></div>
       <div id="detail-view"></div>
 
-      <div id="status-msg" hidden></div>
+      <!-- Settings view -->
+      <div id="settings-view">
+        <div class="settings-section">
+          <h3 class="settings-h">Appearance</h3>
+          <div class="settings-row">
+            <label class="settings-label">Theme</label>
+            <div class="seg-control" id="theme-control">
+              <button class="seg-btn" data-theme="dark" type="button">Dark</button>
+              <button class="seg-btn" data-theme="light" type="button">Light</button>
+              <button class="seg-btn" data-theme="system" type="button">System</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <h3 class="settings-h">Sources</h3>
+          <div id="settings-sources"></div>
+        </div>
+
+        <div class="settings-section">
+          <h3 class="settings-h">Data</h3>
+          <button class="settings-action" id="clear-cache" type="button">Refresh job feed</button>
+          <button class="settings-action danger" id="clear-saved" type="button">Clear saved jobs</button>
+          <button class="settings-action danger" id="clear-applied" type="button">Clear applied list</button>
+        </div>
+
+        <div class="settings-section">
+          <h3 class="settings-h">About</h3>
+          <p class="settings-text">JobHunt aggregates remote roles from RemoteOK, We Work Remotely, and Hacker News "Who is hiring".</p>
+          <p class="settings-text muted">Day 4 of a 30-day build challenge.</p>
+        </div>
+      </div>
     </main>
 
+    <!-- ============ BOTTOM TAB BAR ============ -->
     <nav id="tabbar">
       <button class="tab active" data-view="feed" type="button">
         <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="3" y="4" width="18" height="6" rx="1.5"/><rect x="3" y="14" width="18" height="6" rx="1.5"/>
+          <path d="M3 12 12 3l9 9"/><path d="M5 10v10h14V10"/>
         </svg>
         <span class="tab-label">Feed</span>
       </button>
@@ -67,8 +127,125 @@
           <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
         </svg>
         <span class="tab-label">Saved</span>
+        <span class="tab-badge" id="badge-saved" hidden>0</span>
+      </button>
+      <button class="tab" data-view="applied" type="button">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20 6 9 17l-5-5"/>
+        </svg>
+        <span class="tab-label">Applied</span>
+        <span class="tab-badge" id="badge-applied" hidden>0</span>
+      </button>
+      <button class="tab" data-view="settings" type="button">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+        <span class="tab-label">Settings</span>
       </button>
     </nav>
+
+    <!-- ============ FILTER SHEET ============ -->
+    <div id="sheet-backdrop"></div>
+
+    <div id="filter-sheet" class="sheet" aria-modal="true" hidden>
+      <div class="sheet-grab"></div>
+      <header class="sheet-head">
+        <button class="sheet-close" id="filter-cancel" type="button">Cancel</button>
+        <h2 class="sheet-title">Filters</h2>
+        <button class="sheet-reset" id="filter-reset" type="button">Reset</button>
+      </header>
+      <div class="sheet-body">
+        <div class="filter-group">
+          <label class="filter-label">Sort by</label>
+          <div class="seg-control" id="sort-control">
+            <button class="seg-btn active" data-sort="newest" type="button">Newest</button>
+            <button class="seg-btn" data-sort="salary" type="button">Salary</button>
+            <button class="seg-btn" data-sort="company" type="button">Company</button>
+          </div>
+        </div>
+
+        <div class="filter-group">
+          <label class="filter-label">Posted within</label>
+          <div class="filter-chips" id="posted-chips">
+            <button class="filter-chip active" data-posted="" type="button">Any time</button>
+            <button class="filter-chip" data-posted="day" type="button">24 hours</button>
+            <button class="filter-chip" data-posted="week" type="button">This week</button>
+            <button class="filter-chip" data-posted="month" type="button">This month</button>
+          </div>
+        </div>
+
+        <div class="filter-group">
+          <label class="filter-label">Location</label>
+          <div class="filter-chips" id="location-chips">
+            <button class="filter-chip active" data-loc="" type="button">Anywhere</button>
+            <button class="filter-chip" data-loc="remote" type="button">Remote</button>
+            <button class="filter-chip" data-loc="us" type="button">US</button>
+            <button class="filter-chip" data-loc="europe" type="button">Europe</button>
+            <button class="filter-chip" data-loc="worldwide" type="button">Worldwide</button>
+          </div>
+        </div>
+
+        <div class="filter-group">
+          <label class="filter-label">Minimum salary</label>
+          <div class="filter-chips" id="salary-chips">
+            <button class="filter-chip active" data-salary="0" type="button">Any</button>
+            <button class="filter-chip" data-salary="50000" type="button">$50k+</button>
+            <button class="filter-chip" data-salary="100000" type="button">$100k+</button>
+            <button class="filter-chip" data-salary="150000" type="button">$150k+</button>
+            <button class="filter-chip" data-salary="200000" type="button">$200k+</button>
+          </div>
+          <p class="filter-hint">Jobs without listed salary are hidden when set.</p>
+        </div>
+
+        <div class="filter-group">
+          <label class="filter-label">Sources</label>
+          <div class="filter-chips" id="source-multi">
+            <button class="filter-chip active" data-src="RemoteOK" type="button">RemoteOK</button>
+            <button class="filter-chip active" data-src="WWR" type="button">WWR</button>
+            <button class="filter-chip active" data-src="HN" type="button">HN</button>
+          </div>
+        </div>
+      </div>
+      <footer class="sheet-foot">
+        <button id="filter-apply" class="btn-primary" type="button">Show <span id="filter-count-preview">jobs</span></button>
+      </footer>
+    </div>
+
+    <!-- ============ ACTION SHEET (per-card menu) ============ -->
+    <div id="action-sheet" class="sheet sheet-small" aria-modal="true" hidden>
+      <div class="sheet-grab"></div>
+      <div class="sheet-body sheet-actions">
+        <button class="action-row" data-action="save" type="button">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+          </svg>
+          <span class="action-label" id="action-save-label">Save</span>
+        </button>
+        <button class="action-row" data-action="applied" type="button">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 6 9 17l-5-5"/>
+          </svg>
+          <span class="action-label" id="action-applied-label">Mark as applied</span>
+        </button>
+        <button class="action-row" data-action="share" type="button">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="m16 6-4-4-4 4"/><path d="M12 2v13"/>
+          </svg>
+          <span class="action-label">Share</span>
+        </button>
+        <button class="action-row" data-action="open" type="button">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14 21 3"/>
+          </svg>
+          <span class="action-label">Open posting</span>
+        </button>
+        <button class="action-row cancel" data-action="cancel" type="button">Cancel</button>
+      </div>
+    </div>
+
+    <!-- ============ TOAST ============ -->
+    <div id="toast"></div>
 
   </div>
   <script src="/app.js"></script>
