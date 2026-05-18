@@ -54,12 +54,9 @@
       <!-- Suggestions dropdown -->
       <div id="search-suggestions" hidden></div>
 
-      <!-- Source quick chips -->
+      <!-- Source quick chips (rendered dynamically) -->
       <div id="source-chips" role="tablist">
         <button class="chip active" data-source="all" type="button">All</button>
-        <button class="chip" data-source="RemoteOK" type="button">RemoteOK</button>
-        <button class="chip" data-source="WWR" type="button">WWR</button>
-        <button class="chip" data-source="HN" type="button">HN</button>
       </div>
 
       <!-- Active filter pills (shown when filters applied) -->
@@ -200,11 +197,7 @@
 
         <div class="filter-group">
           <label class="filter-label">Sources</label>
-          <div class="filter-chips" id="source-multi">
-            <button class="filter-chip active" data-src="RemoteOK" type="button">RemoteOK</button>
-            <button class="filter-chip active" data-src="WWR" type="button">WWR</button>
-            <button class="filter-chip active" data-src="HN" type="button">HN</button>
-          </div>
+          <div class="filter-chips" id="source-multi"></div>
         </div>
       </div>
       <footer class="sheet-foot">

@@ -33,6 +33,9 @@
   --src-remoteok: #ff5252;
   --src-wwr: #7cc14a;
   --src-hn: #ff7733;
+  --src-remotive: #06b6d4;
+  --src-arbeitnow: #ec4899;
+  --src-other: #8b95a8;
   --shadow-card: 0 1px 3px rgba(0,0,0,0.4), 0 0 0 1px var(--border);
   --shadow-sheet: 0 -10px 40px rgba(0,0,0,0.5);
   --backdrop: rgba(4, 7, 16, 0.6);
@@ -461,6 +464,9 @@ body.ptr-refreshing #ptr-indicator svg { animation: spin 0.8s linear infinite; }
 .badge.src-RemoteOK { background: rgba(255,82,82,0.15); color: var(--src-remoteok); }
 .badge.src-WWR { background: rgba(124,193,74,0.15); color: var(--src-wwr); }
 .badge.src-HN { background: rgba(255,119,51,0.15); color: var(--src-hn); }
+.badge.src-Remotive { background: rgba(6,182,212,0.15); color: var(--src-remotive); }
+.badge.src-Arbeitnow { background: rgba(236,72,153,0.15); color: var(--src-arbeitnow); }
+.badge.src-Other { background: rgba(139,149,168,0.15); color: var(--src-other); }
 
 .match-badge {
   font-size: 10px;

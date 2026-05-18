@@ -19,13 +19,28 @@ const LS = {
 
 const CACHE_TTL = 1000 * 60 * 30;
 
+const KNOWN_SOURCES = ['RemoteOK', 'WWR', 'HN', 'Remotive', 'Arbeitnow'];
+
 const DEFAULT_FILTERS = {
   sort: 'newest',
   posted: '',           // '' | 'day' | 'week' | 'month'
   loc: '',              // '' | 'remote' | 'us' | 'europe' | 'worldwide'
   salary: 0,            // 0 | 50000 | 100000 | 150000 | 200000
-  sources: ['RemoteOK', 'WWR', 'HN'],
+  sources: [...KNOWN_SOURCES],
 };
+
+// Merge persisted filters with defaults, auto-enabling sources that didn't
+// exist when the user's preferences were saved.
+function loadFilters() {
+  const loaded = loadJson(LS.filters, {});
+  const merged = { ...DEFAULT_FILTERS, ...loaded };
+  if (Array.isArray(loaded.sources)) {
+    const oldKnown = ['RemoteOK', 'WWR', 'HN'];
+    const newOnes = KNOWN_SOURCES.filter((s) => !oldKnown.includes(s));
+    merged.sources = [...new Set([...loaded.sources, ...newOnes])];
+  }
+  return merged;
+}
 
 const state = {
   jobs: [],
@@ -36,11 +51,14 @@ const state = {
   actionJobId: null,
   search: '',
   source: 'all',
-  filters: { ...DEFAULT_FILTERS, ...loadJson(LS.filters, {}) },
+  filters: loadFilters(),
   draftFilters: null,
   companyFilter: null,
   recents: loadJson(LS.recents, []),
-  sourcePrefs: { RemoteOK: true, WWR: true, HN: true, ...loadJson(LS.sourcePrefs, {}) },
+  sourcePrefs: {
+    ...Object.fromEntries(KNOWN_SOURCES.map((s) => [s, true])),
+    ...loadJson(LS.sourcePrefs, {}),
+  },
   theme: localStorage.getItem(LS.theme) || 'system',
   loading: true,
   error: null,
@@ -92,8 +110,8 @@ async function loadJobs({ force = false } = {}) {
     state.loading = false;
     document.getElementById('refresh-btn').classList.remove('spinning');
     document.body.classList.remove('ptr-refreshing');
+    renderShell();
     renderCurrent();
-    renderBadges();
   }
 }
 
@@ -424,9 +442,14 @@ function syncFilterSheet() {
   setActive('posted-chips', `[data-posted="${f.posted}"]`);
   setActive('location-chips', `[data-loc="${f.loc}"]`);
   setActive('salary-chips', `[data-salary="${f.salary}"]`);
-  document.querySelectorAll('#source-multi .filter-chip').forEach((c) => {
-    c.classList.toggle('active', f.sources.includes(c.dataset.src));
-  });
+
+  // Render source-multi dynamically from KNOWN_SOURCES (so new sources auto-show)
+  const present = new Set(state.jobs.map((j) => j.source));
+  const sources = KNOWN_SOURCES.filter((s) => present.has(s) || state.sourcesOk?.[s]);
+  for (const s of present) if (!sources.includes(s)) sources.push(s);
+  document.getElementById('source-multi').innerHTML = sources.map((s) => `
+    <button class="filter-chip ${f.sources.includes(s) ? 'active' : ''}" data-src="${esc(s)}" type="button">${esc(s)}</button>
+  `).join('');
 
   // Preview count
   const previewState = { ...state, filters: f, source: 'all' };
@@ -678,9 +701,27 @@ function wirePullToRefresh() {
 // -------------------- RENDER --------------------
 
 function renderShell() {
+  renderSourceChips();
   renderFilterPills();
   renderFilterBadge();
   renderBadges();
+}
+
+function renderSourceChips() {
+  const el = document.getElementById('source-chips');
+  // Union of canonical sources + whatever the API actually returned this load
+  const present = new Set(state.jobs.map((j) => j.source));
+  const sources = KNOWN_SOURCES.filter((s) => present.has(s) || state.sourcesOk?.[s]);
+  // Include any extras (future-proofing if API adds sources later)
+  for (const s of present) if (!sources.includes(s)) sources.push(s);
+
+  const current = state.source;
+  el.innerHTML = `
+    <button class="chip ${current === 'all' ? 'active' : ''}" data-source="all" type="button">All</button>
+    ${sources.map((s) => `
+      <button class="chip ${current === s ? 'active' : ''}" data-source="${esc(s)}" type="button">${esc(s)}</button>
+    `).join('')}
+  `;
 }
 
 function renderCurrent() {
@@ -784,12 +825,14 @@ function renderSettings() {
     b.classList.toggle('active', b.dataset.theme === state.theme);
   });
 
-  // Source toggles
+  // Source toggles — dynamic from known + loaded sources
   const srcEl = document.getElementById('settings-sources');
   const srcCounts = state.jobs.reduce((acc, j) => {
     acc[j.source] = (acc[j.source] || 0) + 1; return acc;
   }, {});
-  const sources = ['RemoteOK', 'WWR', 'HN'];
+  const present = new Set(state.jobs.map((j) => j.source));
+  const sources = KNOWN_SOURCES.filter((s) => present.has(s) || state.sourcesOk?.[s]);
+  for (const s of present) if (!sources.includes(s)) sources.push(s);
   srcEl.innerHTML = sources.map((s) => {
     const on = state.sourcePrefs[s] !== false;
     const ok = state.sourcesOk?.[s];
